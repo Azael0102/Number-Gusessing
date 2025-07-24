@@ -2,15 +2,16 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
+using NUnit.Framework;
+using System.Collections.Generic;
 
-public class GamePlay : MonoBehaviour
+public class Gameplay : MonoBehaviour
 {
     [Header("UI Elements")]
     public TextMeshProUGUI attempsLeft;
     public TextMeshProUGUI currentPlayer;
     public TextMeshProUGUI gameState;
     public TextMeshProUGUI gameLog;
-
 
     [Header("Input")]
     public TMP_InputField guessInputField;
@@ -20,71 +21,75 @@ public class GamePlay : MonoBehaviour
     [Header("Game Settings")]
     public int minNumber = 1;
     public int maxNumber = 100;
-    public int maxAttempts = 12;
+    public int maxAttemps = 12;
 
     private int targetNumber;
     private int currentAttemps;
     private bool isPlayerTurn;
     private bool gameActive;
 
+    private int computerMinGuess;
+    private int computerMaxGuess;
+    private List<int> computerGuesses;
+
     void InitializeUI()
     {
         submitButton.onClick.AddListener(SubmitGuess);
-        newgameButton.onClick.AddListener(StartNewgame);
+        newgameButton.onClick.AddListener(StartNewGame);
         guessInputField.onSubmit.AddListener(delegate { SubmitGuess(); });
     }
 
     void SubmitGuess()
-    { 
+    {
         if (!gameActive || !isPlayerTurn) return;
 
         string input = guessInputField.text.Trim();
         if (string.IsNullOrEmpty(input)) return;
 
         int guess;
-        if (int.TryParse(input, out guess))
+        if (!int.TryParse(input, out guess))
         {
-            gameState.text = "Please enter a valid number";
+            gameState.text = "<sprite=15> Please enter a valid number";
             return;
         }
         if (guess < minNumber || guess > maxNumber)
         {
-            gameState.text = $"Please enter a number between {minNumber} - {maxNumber}";
+            gameState.text = $"<sprite=15> Please enter a number between {minNumber} - {maxNumber}";
             return;
         }
         ProcessGuess(guess, true);
         guessInputField.text = "";
     }
 
-    void ProcessGuess(int guess, bool isPlaterTurn)
+    void ProcessGuess(int guess, bool isPlayerTurn)
     {
         currentAttemps++;
-        string playerName = isPlaterTurn ? "Player Turn" : "Computer";
+        string playerName = isPlayerTurn ? "Player" : "Computer";
 
-        gameLog.text += $"{playerName} guessed: {guess}\n";
+        gameLog.text += $"{playerName} guessd: {guess}\n";
 
         if (guess == targetNumber)
         {
             //Win
-            gameLog.text += $"{playerName} got it right!\n";
+            gameLog.text += $"<sprite=\"Symbols\" index=23> {playerName}  got damn right!\n";
             EndGame();
         }
-        else if (currentAttemps >= maxAttempts)
+        else if (currentAttemps >= maxAttemps)
         {
             //Lose
-            gameLog.text += $"Game Over! The correct number was {targetNumber}\n";
+            gameLog.text += $"<sprite=10> Game Over! The correct number was {targetNumber}\n";
             EndGame();
         }
         else
         {
             //Wrong guess - give hint
-            string hint = guess < targetNumber ? "Too low" : "Too Hight";
-            gameLog.text += $"{hint}!\n";
+            string hint = guess < targetNumber ? "Too Low" : "Too High";
+            gameLog.text += $"<sprite=\"Symbols\" index=24> {hint}\n";
 
             //Switch players
             isPlayerTurn = !isPlayerTurn;
             currentPlayer.text = isPlayerTurn ? "Player" : "Computer";
-            attempsLeft.text = $"Attempts Left: {maxAttempts - currentAttemps}";
+            attempsLeft.text = $"Attemps Left: {maxAttemps - currentAttemps}";
 
             if (!isPlayerTurn)
             {
@@ -100,54 +105,75 @@ public class GamePlay : MonoBehaviour
                 guessInputField.ActivateInputField();
             }
         }
-
     }
 
-    IEnumerator ComputerTurn(bool targetIsHighter)
+    IEnumerator ComputerTurn(bool targetIsHigher)
     {
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(2f); // Wait to simulate thinking
         if (!gameActive) yield break;
-        int computerGuess = Random.Range(minNumber, maxNumber + 1);
+        if (computerGuesses.Count > 0)
+        { 
+            int lastGuess = computerGuesses[computerGuesses.Count - 1];
+            if (targetIsHigher)
+            {
+                computerMinGuess = lastGuess + 1;
+            }
+            else
+            {
+                computerMaxGuess = lastGuess - 1;
+            }
+        }
+        //Ai uses Binary Search to guess the number
+        int computerGuess = (computerMinGuess + computerMaxGuess) / 2;
+
+        computerGuesses.Add(computerGuess);
+
+        //int computerGuess = Random.Range(minNumber, maxNumber + 1);
         ProcessGuess(computerGuess, false);
     }
+
     void EndGame()
     {
+        attempsLeft.text = $"Attemps Left: {maxAttemps - currentAttemps}";
         gameActive = false;
         guessInputField.interactable = false;
         submitButton.interactable = false;
         currentPlayer.text = "";
-        gameState.text = "Game Over - Click New Game to start again";
+        gameState.text += "Game Over - Click New Game to start again";
         Canvas.ForceUpdateCanvases();
     }
-        void StartNewgame()
+
+    void StartNewGame()
     {
         targetNumber = Random.Range(minNumber, maxNumber + 1);
         currentAttemps = 0;
         isPlayerTurn = true;
         gameActive = true;
 
-        currentPlayer.text = "Player's Turn";
-        attempsLeft.text = $"Attempts Left: {maxAttempts}";
+        currentPlayer.text = "Player Turn";
+        attempsLeft.text = $"Attemps Left: {maxAttemps}";
         gameLog.text = "=== Game Log ===\n";
-        gameState.text = "New game started! Player goes first";
+        gameState.text = "Game In Progress";
 
         guessInputField.interactable = true;
         submitButton.interactable = true;
         guessInputField.text = "";
         guessInputField.Select();
         guessInputField.ActivateInputField();
+
+        computerMinGuess = minNumber;
+        computerMaxGuess = maxNumber;
+        computerGuesses = new List<int>();
     }
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         InitializeUI();
-        StartNewgame();
+        StartNewGame();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
+
     }
 }
